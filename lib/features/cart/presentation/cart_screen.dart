@@ -68,6 +68,7 @@ class CartScreen extends ConsumerWidget {
           ? null
           : _PlaceOrderBar(
               totalPaise: pricing.totalPaise,
+              storeOpen: config.storeOpen,
               onPressed: () => _placeOrder(context, ref),
             ),
     );
@@ -410,10 +411,12 @@ class _BillDetails extends StatelessWidget {
 class _PlaceOrderBar extends ConsumerWidget {
   const _PlaceOrderBar({
     required this.totalPaise,
+    required this.storeOpen,
     required this.onPressed,
   });
 
   final int totalPaise;
+  final bool storeOpen;
   final VoidCallback onPressed;
 
   @override
@@ -421,6 +424,7 @@ class _PlaceOrderBar extends ConsumerWidget {
     final checkout = ref.watch(checkoutControllerProvider);
     final placing = checkout.isPlacingOrder;
     final orderStatusUnknown = checkout.lastResult is CheckoutUnknown;
+    final checkoutDisabled = !storeOpen && !orderStatusUnknown;
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -429,7 +433,7 @@ class _PlaceOrderBar extends ConsumerWidget {
             minimumSize: const Size.fromHeight(52),
             backgroundColor: Colors.green.shade800,
           ),
-          onPressed: placing ? null : onPressed,
+          onPressed: placing || checkoutDisabled ? null : onPressed,
           child: Row(
             children: [
               Text(formatMoney(totalPaise),
@@ -445,9 +449,11 @@ class _PlaceOrderBar extends ConsumerWidget {
                 )
               else
                 Text(
-                  orderStatusUnknown
-                      ? 'Check order status  ▶'
-                      : 'Place order  ▶',
+                  checkoutDisabled
+                      ? 'Store closed'
+                      : orderStatusUnknown
+                          ? 'Check order status  ▶'
+                          : 'Place order  ▶',
                 ),
             ],
           ),

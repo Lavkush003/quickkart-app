@@ -71,7 +71,12 @@
   open. A root-level gate blocks all routes for required updates and opens the
   configured `update_url`; optional prompts can be dismissed and the dismissed
   `latest_version` is persisted so it is not shown again.
-- **Store closed UX:**
+- **Store closed UX:** The configured closure message appears in a non-blocking
+  app-wide banner, so browsing and cart review remain available. The cart's
+  order button is disabled while closed; a pending unknown-order status check
+  remains available because it does not create another order. Live config
+  changes re-enable checkout when the store reopens, while the controller
+  continues to perform its fresh server-side preflight before sending orders.
 - **Server-driven home: robustness to bad config:**
 
 ## 4. Feature 3 (if attempted)

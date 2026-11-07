@@ -59,23 +59,33 @@ class _AppUpdateGateState extends ConsumerState<AppUpdateGate> {
     }
 
     final required = requirement == UpdateRequirement.required;
-    return PopScope(
-      canPop: !required,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          ExcludeSemantics(
-            excluding: required,
-            child: AbsorbPointer(absorbing: required, child: widget.child),
-          ),
-          if (required)
-            Positioned.fill(
-              child: _UpdateRequiredPage(
-                onUpdate: () => unawaited(_openUpdateUrl(config.updateUrl)),
-              ),
+    return Column(
+      children: [
+        if (!config.storeOpen)
+          _StoreClosedBanner(message: config.storeClosedMessage),
+        Expanded(
+          child: PopScope(
+            canPop: !required,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                ExcludeSemantics(
+                  excluding: required,
+                  child:
+                      AbsorbPointer(absorbing: required, child: widget.child),
+                ),
+                if (required)
+                  Positioned.fill(
+                    child: _UpdateRequiredPage(
+                      onUpdate: () =>
+                          unawaited(_openUpdateUrl(config.updateUrl)),
+                    ),
+                  ),
+              ],
             ),
-        ],
-      ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -244,6 +254,45 @@ class _UpdateRequiredPage extends StatelessWidget {
                   onPressed: onUpdate,
                   icon: const Icon(Icons.open_in_new),
                   label: const Text('Update now'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StoreClosedBanner extends StatelessWidget {
+  const _StoreClosedBanner({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final visibleMessage =
+        message.trim().isEmpty ? 'The store is temporarily closed.' : message;
+    return Material(
+      color: Colors.amber.shade100,
+      child: SafeArea(
+        bottom: false,
+        child: SizedBox(
+          width: double.infinity,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.brown.shade800),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    visibleMessage,
+                    style: TextStyle(
+                      color: Colors.brown.shade900,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ],
             ),
