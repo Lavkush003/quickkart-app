@@ -1,7 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:quickkart/core/network/api_client.dart';
 import 'package:quickkart/features/catalog/data/catalog_repository.dart';
+import 'package:quickkart/features/catalog/data/catalog_api.dart';
+import 'package:quickkart/features/catalog/data/catalog_cache.dart';
 import 'package:quickkart/features/catalog/presentation/catalog_controller.dart';
 import 'package:quickkart/features/checkout/application/checkout_controller.dart';
 import 'package:quickkart/features/checkout/domain/order.dart';
@@ -54,17 +57,53 @@ void main() {
 
   test('offline fallback keeps catalog pages scoped to their category',
       () async {
-    final repository = harness.read(catalogRepositoryProvider);
+    final repository = CatalogRepository(
+      CatalogApi(ApiClient(
+        harness.server.transport,
+        maxRetries: 0,
+        responseCacheTtl: Duration.zero,
+      )),
+      CatalogCache(harness.store),
+    );
     final fruitPage = await repository.getPage(categoryId: 'fruits', limit: 30);
+    final beveragePage =
+        await repository.getPage(categoryId: 'beverages', limit: 30);
     expect(fruitPage.items, isNotEmpty);
     expect(fruitPage.items.every((p) => p.categoryId == 'fruits'), isTrue);
+    expect(beveragePage.items, isNotEmpty);
+    expect(
+      beveragePage.items.every((p) => p.categoryId == 'beverages'),
+      isTrue,
+    );
 
     harness.server.chaos.offline = true;
-    final dairyPage = await repository.getPage(categoryId: 'dairy', limit: 30);
+    final offlineFruitPage =
+        await repository.getPage(categoryId: 'fruits', limit: 30);
+    final offlineBeveragePage =
+        await repository.getPage(categoryId: 'beverages', limit: 30);
 
-    expect(dairyPage.fromCache, isTrue);
-    expect(dairyPage.items, isNotEmpty);
-    expect(dairyPage.items.every((p) => p.categoryId == 'dairy'), isTrue);
+    expect(offlineFruitPage.fromCache, isTrue);
+    expect(
+      offlineFruitPage.items.every((p) => p.categoryId == 'fruits'),
+      isTrue,
+    );
+    expect(offlineBeveragePage.fromCache, isTrue);
+    expect(
+      offlineBeveragePage.items.every((p) => p.categoryId == 'beverages'),
+      isTrue,
+    );
+  });
+
+  test('legacy catalog fields parse without crashing category browsing',
+      () async {
+    final page = await harness.read(catalogRepositoryProvider).getPage(
+          categoryId: 'dairy',
+          limit: 30,
+        );
+    final legacyMilk = page.items.firstWhere((p) => p.id == 'dairy-00');
+
+    expect(legacyMilk.mrpPaise, legacyMilk.pricePaise);
+    expect(legacyMilk.stock, 120);
   });
 
   test('order history refreshes after a successful checkout', () async {

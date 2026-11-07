@@ -69,7 +69,7 @@ void main() {
   test('remove persists the cart', () async {
     await prepare(initialCart);
     await harness.read(cartControllerProvider.notifier).remove(product.id);
-    await expectPersisted(const Cart.empty());
+    await expectPersisted(initialCart.removeLine(product.id));
   });
 
   test('applyCoupon persists the cart', () async {
