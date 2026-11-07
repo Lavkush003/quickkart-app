@@ -54,8 +54,18 @@
 
 ## 3. Remote config, updates & kill switch (Feature 2)
 
-- **Caching strategy and failure behaviour:**
-- **How live updates propagate, and how you avoid leaks:**
+- **Caching strategy and failure behaviour:** Startup hydrates the last valid
+  config from `KeyValueStore` before the first frame and begins a forced remote
+  refresh after `runApp`. A successful, validated response replaces the cache.
+  Offline or malformed responses never overwrite it; ordinary loads use the
+  cache and then safe defaults, while checkout's `loadFresh()` still surfaces
+  failures instead of returning fallback data. Concurrent refreshes share one
+  request.
+- **How live updates propagate, and how you avoid leaks:** The app-config
+  controller owns the single remote-update subscription, fetches validated
+  config on updates, and keeps its current state if refresh fails. Riverpod
+  disposal cancels the subscription. Config-dependent screens watch controller
+  state rather than managing independent listeners.
 - **Force / optional update UX:**
 - **Store closed UX:**
 - **Server-driven home: robustness to bad config:**

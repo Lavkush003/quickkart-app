@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -31,11 +33,12 @@ Future<void> main() async {
     ],
   );
 
-  // Restore the cart and load remote config before the first frame.
+  // Restore local state before the first frame; network config refresh is
+  // deliberately deferred so an offline launch is not blocked by retries.
   final cart = await container.read(cartStorageProvider).load();
   container.read(cartControllerProvider.notifier).hydrate(cart);
 
-  final config = await container.read(configRepositoryProvider).load();
+  final config = await container.read(configRepositoryProvider).loadCached();
   container.read(appConfigControllerProvider.notifier).hydrate(config);
 
   runApp(
@@ -44,4 +47,5 @@ Future<void> main() async {
       child: const QuickKartApp(),
     ),
   );
+  unawaited(container.read(appConfigControllerProvider.notifier).refresh());
 }

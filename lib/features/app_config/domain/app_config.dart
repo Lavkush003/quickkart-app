@@ -43,7 +43,8 @@ class AppConfig {
           _string(values['store_closed_message']) ?? d.storeClosedMessage,
       homeBannerJson: _string(values['home_banner']),
       homeSectionsJson: _string(values['home_sections']),
-      deliveryFeePaise: _int(values['delivery_fee_paise']) ?? d.deliveryFeePaise,
+      deliveryFeePaise:
+          _int(values['delivery_fee_paise']) ?? d.deliveryFeePaise,
       freeDeliveryThresholdPaise:
           _int(values['free_delivery_threshold_paise']) ??
               d.freeDeliveryThresholdPaise,
@@ -65,6 +66,18 @@ class AppConfig {
 
   final int deliveryFeePaise;
   final int freeDeliveryThresholdPaise;
+
+  Map<String, Object?> toJson() => {
+        'min_supported_version': minSupportedVersion,
+        'latest_version': latestVersion,
+        'update_url': updateUrl,
+        'store_open': storeOpen,
+        'store_closed_message': storeClosedMessage,
+        'home_banner': homeBannerJson,
+        'home_sections': homeSectionsJson,
+        'delivery_fee_paise': deliveryFeePaise,
+        'free_delivery_threshold_paise': freeDeliveryThresholdPaise,
+      };
 
   /// Parsed banner, or null if missing / malformed.
   HomeBanner? get homeBanner {
