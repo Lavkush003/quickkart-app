@@ -29,10 +29,28 @@
 
 ## 2. Safe checkout & idempotency
 
-- **How are duplicate orders prevented?** (key generation, lifetime, storage)
-- **What does the user see on timeout / lost response?**
-- **Edge cases you handled:**
-- **Edge cases you know you did NOT handle:**
+- **How are duplicate orders prevented?** After fresh config, cart
+  reconciliation, customer consent, and local validation, checkout generates a
+  UUID key and persists it with the exact cart and pricing payload before the
+  POST. Retries reuse that snapshot and key. The record is removed only after
+  the order and cart cleanup are confirmed.
+- **What does the user see on timeout / lost response?** Checkout retries the
+  same request once. If it still cannot confirm the response, it shows an
+  explicit unknown-status message and changes the action to “Check order
+  status”; it does not claim failure or create a new logical order. With the
+  store closed, order history is checked for a unique exact match created after
+  the persisted attempt time. Ambiguous or unavailable lookup remains unknown.
+- **Edge cases you handled:** Double taps share one in-flight request. Fresh
+  config verifies connectivity and store status before ordering. The pending
+  payload survives process restarts and cart edits; a confirmed response is
+  persisted before cart cleanup. Server-side price/stock/coupon conflicts are
+  reconciled and shown for review. A coupon below its minimum remains on the
+  cart but is omitted from the order payload, matching the business rule that
+  it gives no discount while still allowing checkout.
+- **Edge cases you know you did NOT handle:** If local storage becomes
+  unavailable while persisting a confirmed order, server success cannot be
+  rolled back; the server idempotency key still prevents a duplicate, but
+  recovery may require the next app launch or user retry.
 
 ## 3. Remote config, updates & kill switch (Feature 2)
 

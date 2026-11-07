@@ -99,6 +99,8 @@ Future<void> _placeOrder(BuildContext context, WidgetRef ref) async {
       }
     case CheckoutFailure(:final message):
       messenger.showSnackBar(SnackBar(content: Text(message)));
+    case CheckoutUnknown(:final message):
+      messenger.showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
@@ -416,8 +418,9 @@ class _PlaceOrderBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final placing =
-        ref.watch(checkoutControllerProvider.select((s) => s.isPlacingOrder));
+    final checkout = ref.watch(checkoutControllerProvider);
+    final placing = checkout.isPlacingOrder;
+    final orderStatusUnknown = checkout.lastResult is CheckoutUnknown;
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -426,7 +429,7 @@ class _PlaceOrderBar extends ConsumerWidget {
             minimumSize: const Size.fromHeight(52),
             backgroundColor: Colors.green.shade800,
           ),
-          onPressed: onPressed,
+          onPressed: placing ? null : onPressed,
           child: Row(
             children: [
               Text(formatMoney(totalPaise),
@@ -441,7 +444,11 @@ class _PlaceOrderBar extends ConsumerWidget {
                       strokeWidth: 2, color: Colors.white),
                 )
               else
-                const Text('Place order  ▶'),
+                Text(
+                  orderStatusUnknown
+                      ? 'Check order status  ▶'
+                      : 'Place order  ▶',
+                ),
             ],
           ),
         ),

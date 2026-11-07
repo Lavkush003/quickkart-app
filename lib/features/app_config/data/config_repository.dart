@@ -41,4 +41,28 @@ class ConfigRepository {
       return AppConfig.defaults();
     }
   }
+
+  /// Fetches config without a cached response or a success-shaped fallback.
+  ///
+  /// Checkout uses this to verify connectivity and the current store status.
+  Future<AppConfig> loadFresh() async {
+    try {
+      final json = await _client.get('/v1/config', forceRefresh: true)
+          as Map<String, dynamic>;
+      final rawValues = json['values'];
+      if (rawValues is! Map) throw _invalidConfigResponse();
+      return AppConfig.fromValues(rawValues.cast<String, Object?>());
+    } on ApiException {
+      rethrow;
+    } on TypeError {
+      throw _invalidConfigResponse();
+    } on FormatException {
+      throw _invalidConfigResponse();
+    }
+  }
+
+  ServerException _invalidConfigResponse() => const ServerException(
+        502,
+        'The server returned invalid store configuration. Please try again.',
+      );
 }
