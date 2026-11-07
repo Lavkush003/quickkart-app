@@ -1,4 +1,5 @@
 import 'cart.dart';
+import 'coupon.dart';
 
 /// A difference between the user's local cart and the server's current
 /// state, detected by `CartReconciler`.
@@ -15,9 +16,11 @@ class PriceChanged extends CartChange {
     required this.productId,
     required this.oldPricePaise,
     required this.newPricePaise,
+    this.productName,
   });
 
   final String productId;
+  final String? productName;
   final int oldPricePaise;
   final int newPricePaise;
 
@@ -34,9 +37,10 @@ class PriceChanged extends CartChange {
 
 /// The product exists but has zero stock right now.
 class OutOfStock extends CartChange {
-  const OutOfStock({required this.productId});
+  const OutOfStock({required this.productId, this.productName});
 
   final String productId;
+  final String? productName;
 
   @override
   bool get requiresUserReview => true;
@@ -51,9 +55,11 @@ class QuantityReduced extends CartChange {
     required this.productId,
     required this.requestedQuantity,
     required this.availableQuantity,
+    this.productName,
   });
 
   final String productId;
+  final String? productName;
   final int requestedQuantity;
   final int availableQuantity;
 
@@ -67,9 +73,10 @@ class QuantityReduced extends CartChange {
 
 /// The product is no longer sold (reported as `missing` by the API).
 class ProductUnavailable extends CartChange {
-  const ProductUnavailable({required this.productId});
+  const ProductUnavailable({required this.productId, this.productName});
 
   final String productId;
+  final String? productName;
 
   @override
   bool get requiresUserReview => true;
@@ -92,6 +99,21 @@ class CouponRemoved extends CartChange {
 
   @override
   String toString() => 'CouponRemoved($code, $reason)';
+}
+
+class CouponChanged extends CartChange {
+  const CouponChanged({required this.previous, required this.latest});
+
+  final Coupon previous;
+  final Coupon latest;
+
+  String get code => previous.code;
+
+  @override
+  bool get requiresUserReview => true;
+
+  @override
+  String toString() => 'CouponChanged($code)';
 }
 
 class ReconciliationResult {

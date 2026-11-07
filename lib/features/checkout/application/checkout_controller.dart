@@ -7,6 +7,7 @@ import '../../../core/network/api_exceptions.dart';
 import '../../../core/providers.dart';
 import '../../app_config/presentation/app_config_controller.dart';
 import '../../cart/application/cart_controller.dart';
+import '../../cart/application/cart_reconciler.dart';
 import '../../cart/domain/cart.dart';
 import '../../cart/domain/cart_pricing.dart';
 import '../../cart/domain/reconciliation.dart';
@@ -57,8 +58,11 @@ final checkoutControllerProvider =
 
 class CheckoutController extends Notifier<CheckoutState> {
   static const _pendingOrderKey = 'checkout.pending_order.v1';
+  static const _pendingReviewCartKey = 'checkout.pending_review_cart.v1';
 
   Future<CheckoutResult>? _inFlight;
+  ReconciliationResult? _pendingReview;
+  bool _reviewAccepted = false;
 
   @override
   CheckoutState build() => const CheckoutState();
@@ -82,14 +86,104 @@ class CheckoutController extends Notifier<CheckoutState> {
     return request.whenComplete(() => _inFlight = null);
   }
 
+  /// Confirms the changes returned by the latest [CheckoutNeedsReview].
+  Future<void> acceptChanges() async {
+    if (_pendingReview == null) return;
+    await ref.read(keyValueStoreProvider).remove(_pendingReviewCartKey);
+    _reviewAccepted = true;
+  }
+
   Future<CheckoutResult> _placeOrder({
     required bool retryOnTimeout,
     String? idempotencyKey,
   }) async {
-    final cart = ref.read(cartControllerProvider);
+    var cart = ref.read(cartControllerProvider);
+    final pendingReview = _pendingReview;
+    if (pendingReview != null && !_reviewAccepted) {
+      return CheckoutNeedsReview(pendingReview);
+    }
+
+    final store = ref.read(keyValueStoreProvider);
+    if (pendingReview == null) {
+      final savedReviewCart = await store.getString(_pendingReviewCartKey);
+      if (savedReviewCart != null) {
+        final Cart originalCart;
+        try {
+          final json = jsonDecode(savedReviewCart);
+          if (json is! Map<String, dynamic>) {
+            return const CheckoutFailure(
+              'Your saved cart review is invalid. Please rebuild your cart.',
+            );
+          }
+          originalCart = Cart.fromJson(json);
+        } on FormatException {
+          return const CheckoutFailure(
+            'Your saved cart review is invalid. Please rebuild your cart.',
+          );
+        } on TypeError {
+          return const CheckoutFailure(
+            'Your saved cart review is invalid. Please rebuild your cart.',
+          );
+        }
+
+        final ReconciliationResult restoredReview;
+        try {
+          restoredReview = await _reconcile(originalCart);
+        } on ApiException catch (error) {
+          return CheckoutFailure(
+            'Could not verify your cart with the store. ${error.message}',
+            canRetry: error.isTransient,
+          );
+        }
+        if (restoredReview.requiresUserReview) {
+          await ref
+              .read(cartControllerProvider.notifier)
+              .replace(restoredReview.cart);
+          _pendingReview = restoredReview;
+          _reviewAccepted = false;
+          return CheckoutNeedsReview(restoredReview);
+        }
+
+        await store.remove(_pendingReviewCartKey);
+        if (restoredReview.cart != cart) {
+          await ref
+              .read(cartControllerProvider.notifier)
+              .replace(restoredReview.cart);
+        }
+        cart = restoredReview.cart;
+      }
+    }
+
     if (cart.isEmpty) {
       return const CheckoutFailure('Your cart is empty');
     }
+
+    final ReconciliationResult reconciliation;
+    try {
+      reconciliation = await _reconcile(cart);
+    } on ApiException catch (error) {
+      return CheckoutFailure(
+        'Could not verify your cart with the store. ${error.message}',
+        canRetry: error.isTransient,
+      );
+    }
+    if (reconciliation.hasChanges) {
+      cart = reconciliation.cart;
+      if (reconciliation.requiresUserReview) {
+        await store.setString(
+          _pendingReviewCartKey,
+          jsonEncode(ref.read(cartControllerProvider).toJson()),
+        );
+        await ref.read(cartControllerProvider.notifier).replace(cart);
+        _pendingReview = reconciliation;
+        _reviewAccepted = false;
+        return CheckoutNeedsReview(reconciliation);
+      }
+      await ref.read(cartControllerProvider.notifier).replace(cart);
+    }
+    _pendingReview = null;
+    _reviewAccepted = false;
+
     final pricing =
         CartPricing.compute(cart, ref.read(appConfigControllerProvider));
     final key = idempotencyKey ?? await _idempotencyKeyFor(cart, pricing);
@@ -117,6 +211,9 @@ class CheckoutController extends Notifier<CheckoutState> {
       return CheckoutFailure(e.message, canRetry: e.isTransient);
     }
   }
+
+  Future<ReconciliationResult> _reconcile(Cart cart) =>
+      ref.read(cartReconcilerProvider).reconcile(cart);
 
   Future<String> _idempotencyKeyFor(
     Cart cart,

@@ -11,6 +11,8 @@ import '../application/cart_controller.dart';
 import '../data/coupon_api.dart';
 import '../domain/cart.dart';
 import '../domain/cart_pricing.dart';
+import '../domain/coupon.dart';
+import '../domain/reconciliation.dart';
 
 class CartScreen extends ConsumerWidget {
   const CartScreen({super.key});
@@ -62,11 +64,173 @@ class CartScreen extends ConsumerWidget {
                 const SizedBox(height: 80),
               ],
             ),
-      bottomNavigationBar:
-          cart.isEmpty ? null : _PlaceOrderBar(totalPaise: pricing.totalPaise),
+      bottomNavigationBar: cart.isEmpty
+          ? null
+          : _PlaceOrderBar(
+              totalPaise: pricing.totalPaise,
+              onPressed: () => _placeOrder(context, ref),
+            ),
     );
   }
 }
+
+Future<void> _placeOrder(BuildContext context, WidgetRef ref) async {
+  final messenger = ScaffoldMessenger.of(context);
+  final navigator = Navigator.of(context);
+  final result =
+      await ref.read(checkoutControllerProvider.notifier).placeOrder();
+  if (!context.mounted) return;
+  switch (result) {
+    case CheckoutSuccess(:final order):
+      navigator.pushReplacement(MaterialPageRoute<void>(
+        builder: (_) => OrderSuccessScreen(order: order),
+      ));
+    case CheckoutNeedsReview(:final reconciliation):
+      final accepted = await _showReconciliationReview(
+        context,
+        reconciliation,
+      );
+      if (accepted && context.mounted) {
+        await ref.read(checkoutControllerProvider.notifier).acceptChanges();
+        if (!context.mounted) return;
+        messenger.showSnackBar(const SnackBar(
+          content: Text('Changes accepted. Place your order to continue.'),
+        ));
+      }
+    case CheckoutFailure(:final message):
+      messenger.showSnackBar(SnackBar(content: Text(message)));
+  }
+}
+
+Future<bool> _showReconciliationReview(
+  BuildContext context,
+  ReconciliationResult reconciliation,
+) async {
+  return await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Review cart changes'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'No order has been placed. Review and accept these '
+                    'changes, then place your order again.',
+                  ),
+                  const SizedBox(height: 12),
+                  for (final change in reconciliation.changes)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(_changeDescription(change)),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Not now'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Accept changes'),
+            ),
+          ],
+        ),
+      ) ??
+      false;
+}
+
+String _changeDescription(CartChange change) {
+  switch (change) {
+    case PriceChanged(
+        :final productId,
+        :final productName,
+        :final oldPricePaise,
+        :final newPricePaise
+      ):
+      final direction = change.isIncrease ? 'increased' : 'decreased';
+      return '${productName ?? productId}: price $direction from '
+          '${formatMoney(oldPricePaise)} to ${formatMoney(newPricePaise)}.';
+    case OutOfStock(:final productId, :final productName):
+      return '${productName ?? productId} is out of stock and was removed.';
+    case QuantityReduced(
+        :final productId,
+        :final productName,
+        :final requestedQuantity,
+        :final availableQuantity
+      ):
+      return '${productName ?? productId}: quantity reduced from '
+          '$requestedQuantity to $availableQuantity.';
+    case ProductUnavailable(:final productId, :final productName):
+      return '${productName ?? productId} is no longer sold and was removed.';
+    case CouponRemoved(:final code, :final reason):
+      final description =
+          reason == 'EXPIRED' ? 'expired' : 'is no longer available';
+      return 'Coupon $code was removed because it $description.';
+    case CouponChanged(:final code, :final previous, :final latest):
+      final details = <String>[];
+      if (previous.code != latest.code) {
+        details.add('code changed from ${previous.code} to ${latest.code}');
+      }
+      if (previous.type != latest.type) {
+        details.add(
+          'discount type changed from ${_couponType(previous)} '
+          'to ${_couponType(latest)}',
+        );
+      }
+      if (previous.value != latest.value) {
+        details.add(
+          'discount changed from ${_couponValue(previous)} '
+          'to ${_couponValue(latest)}',
+        );
+      }
+      if (previous.maxDiscountPaise != latest.maxDiscountPaise) {
+        details.add(
+          'maximum discount changed from '
+          '${_optionalMoney(previous.maxDiscountPaise)} to '
+          '${_optionalMoney(latest.maxDiscountPaise)}',
+        );
+      }
+      if (previous.minOrderPaise != latest.minOrderPaise) {
+        details.add(
+          'minimum order changed from ${formatMoney(previous.minOrderPaise)} '
+          'to ${formatMoney(latest.minOrderPaise)}',
+        );
+      }
+      if (previous.expiresAt != latest.expiresAt) {
+        details.add(
+          'expiry changed from ${_couponDate(previous.expiresAt)} '
+          'to ${_couponDate(latest.expiresAt)}',
+        );
+      }
+      if (previous.description != latest.description) {
+        details.add(
+          'description changed from "${previous.description}" '
+          'to "${latest.description}"',
+        );
+      }
+      return 'Coupon $code changed: ${details.join('; ')}.';
+  }
+}
+
+String _couponType(Coupon coupon) =>
+    coupon.type == CouponType.flat ? 'flat' : 'percentage';
+
+String _couponValue(Coupon coupon) => coupon.type == CouponType.flat
+    ? formatMoney(coupon.value)
+    : '${coupon.value}%';
+
+String _optionalMoney(int? paise) =>
+    paise == null ? 'no limit' : formatMoney(paise);
+
+String _couponDate(DateTime date) =>
+    date.toUtc().toIso8601String().split('T').first;
 
 class _CartLineTile extends ConsumerWidget {
   const _CartLineTile({required this.line});
@@ -242,33 +406,18 @@ class _BillDetails extends StatelessWidget {
 }
 
 class _PlaceOrderBar extends ConsumerWidget {
-  const _PlaceOrderBar({required this.totalPaise});
+  const _PlaceOrderBar({
+    required this.totalPaise,
+    required this.onPressed,
+  });
 
   final int totalPaise;
-
-  Future<void> _placeOrder(BuildContext context, WidgetRef ref) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final navigator = Navigator.of(context);
-    final result =
-        await ref.read(checkoutControllerProvider.notifier).placeOrder();
-    switch (result) {
-      case CheckoutSuccess(:final order):
-        navigator.pushReplacement(MaterialPageRoute<void>(
-          builder: (_) => OrderSuccessScreen(order: order),
-        ));
-      case CheckoutNeedsReview():
-        messenger.showSnackBar(const SnackBar(
-          content: Text('Your cart was updated. Please review it.'),
-        ));
-      case CheckoutFailure(:final message):
-        messenger.showSnackBar(SnackBar(content: Text(message)));
-    }
-  }
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final placing = ref
-        .watch(checkoutControllerProvider.select((s) => s.isPlacingOrder));
+    final placing =
+        ref.watch(checkoutControllerProvider.select((s) => s.isPlacingOrder));
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -277,7 +426,7 @@ class _PlaceOrderBar extends ConsumerWidget {
             minimumSize: const Size.fromHeight(52),
             backgroundColor: Colors.green.shade800,
           ),
-          onPressed: () => _placeOrder(context, ref),
+          onPressed: onPressed,
           child: Row(
             children: [
               Text(formatMoney(totalPaise),

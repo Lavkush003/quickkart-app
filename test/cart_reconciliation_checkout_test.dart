@@ -42,7 +42,7 @@ void main() {
     expect(unacceptedAttempt, isA<CheckoutNeedsReview>());
     expect(harness.server.orderCount, 0);
 
-    checkout.acceptChanges();
+    await checkout.acceptChanges();
     final acceptedAttempt = await checkout.placeOrder();
 
     expect(acceptedAttempt, isA<CheckoutSuccess>());
@@ -113,6 +113,36 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Changes accepted'), findsOneWidget);
+    expect(harness.server.orderCount, 0);
+  });
+
+  testWidgets(
+      'removed products remain explained when reconciliation empties cart',
+      (tester) async {
+    final product =
+        (await harness.read(catalogApiProvider).getProductsByIds(['fruits-01']))
+            .products
+            .single;
+    await harness.read(cartControllerProvider.notifier).replace(
+          Cart(lines: [CartLine.fromProduct(product)]),
+        );
+    harness.server.setStock(product.id, 0);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: harness.container,
+        child: const MaterialApp(home: CartScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Place order  ▶'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Review cart changes'), findsOneWidget);
+    expect(
+      find.text('${product.name} is out of stock and was removed.'),
+      findsOneWidget,
+    );
     expect(harness.server.orderCount, 0);
   });
 }

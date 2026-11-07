@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:quickkart/core/network/api_client.dart';
 import 'package:quickkart/core/network/api_exceptions.dart';
 import 'package:quickkart/core/providers.dart';
 import 'package:quickkart/features/cart/application/cart_reconciler.dart';
