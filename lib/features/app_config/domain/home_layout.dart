@@ -1,11 +1,11 @@
+import 'dart:convert';
+
 /// Sections the home screen knows how to render.
 enum HomeSection { banner, categories, deals, allProducts }
 
 /// Server-driven home screen layout.
 ///
-/// ## TODO(F2) - implement [HomeLayout.parse]
-///
-/// Contract (checked by hidden tests):
+/// Contract (see ASSIGNMENT.md, Part C: Feature 2):
 /// * Input is the raw `home_sections` remote config value: a JSON array of
 ///   strings. Known ids: `banner`, `categories`, `deals`, `all_products`.
 /// * Output keeps the order given by the config.
@@ -23,6 +23,29 @@ class HomeLayout {
   ];
 
   static List<HomeSection> parse(String? rawJson) {
-    throw UnimplementedError('F2: implement HomeLayout.parse');
+    if (rawJson == null) return defaultSections;
+
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(rawJson);
+    } on FormatException {
+      return defaultSections;
+    }
+    if (decoded is! List) return defaultSections;
+
+    const sectionsById = {
+      'banner': HomeSection.banner,
+      'categories': HomeSection.categories,
+      'deals': HomeSection.deals,
+      'all_products': HomeSection.allProducts,
+    };
+    final seen = <HomeSection>{};
+    final sections = <HomeSection>[];
+    for (final sectionId in decoded) {
+      if (sectionId is! String) continue;
+      final section = sectionsById[sectionId];
+      if (section != null && seen.add(section)) sections.add(section);
+    }
+    return sections.isEmpty ? defaultSections : sections;
   }
 }

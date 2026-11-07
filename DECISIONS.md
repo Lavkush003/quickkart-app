@@ -77,7 +77,13 @@
   remains available because it does not create another order. Live config
   changes re-enable checkout when the store reopens, while the controller
   continues to perform its fresh server-side preflight before sending orders.
-- **Server-driven home: robustness to bad config:**
+- **Server-driven home: robustness to bad config:** `HomeLayout.parse` keeps
+  the first occurrence of recognized section IDs in configured order and
+  falls back to categories plus all products when input is absent, malformed,
+  or contains no known sections. Missing banner content is omitted safely;
+  deals show a retryable error or an empty state. The all-products catalog
+  retains its existing pagination and refresh behavior, with configured
+  sections after it rendered as footer slivers.
 
 ## 4. Feature 3 (if attempted)
 

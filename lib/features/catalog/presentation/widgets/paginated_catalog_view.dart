@@ -12,10 +12,12 @@ class PaginatedCatalogView extends ConsumerStatefulWidget {
     super.key,
     required this.categoryId,
     this.headerSlivers = const [],
+    this.footerSlivers = const [],
   });
 
   final String categoryId;
   final List<Widget> headerSlivers;
+  final List<Widget> footerSlivers;
 
   @override
   ConsumerState<PaginatedCatalogView> createState() =>
@@ -73,8 +75,7 @@ class _PaginatedCatalogViewState extends ConsumerState<PaginatedCatalogView> {
                     Icon(Icons.cloud_off, size: 18),
                     SizedBox(width: 8),
                     Expanded(
-                      child: Text(
-                          'You are offline. Showing saved products.'),
+                      child: Text('You are offline. Showing saved products.'),
                     ),
                   ],
                 ),
@@ -120,8 +121,7 @@ class _PaginatedCatalogViewState extends ConsumerState<PaginatedCatalogView> {
                   childAspectRatio: 0.62,
                 ),
                 delegate: SliverChildBuilderDelegate(
-                  (context, index) =>
-                      ProductCard(product: state.items[index]),
+                  (context, index) => ProductCard(product: state.items[index]),
                   childCount: state.items.length,
                 ),
               ),
@@ -148,6 +148,7 @@ class _PaginatedCatalogViewState extends ConsumerState<PaginatedCatalogView> {
               ),
             ),
           ],
+          ...widget.footerSlivers,
         ],
       ),
     );
