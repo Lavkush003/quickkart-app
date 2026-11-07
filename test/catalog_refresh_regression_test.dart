@@ -55,6 +55,35 @@ void main() {
     subscription.close();
   });
 
+  test('concurrent pagination requests do not append duplicate products',
+      () async {
+    final provider = catalogControllerProvider(kAllProductsCategory);
+    final loaded = Completer<void>();
+    final subscription = harness.container.listen(
+      provider,
+      (previous, next) {
+        if (!next.isLoadingFirstPage &&
+            next.items.isNotEmpty &&
+            !loaded.isCompleted) {
+          loaded.complete();
+        }
+      },
+      fireImmediately: true,
+    );
+    await loaded.future;
+
+    harness.server.chaos.latencyOverride = (request) =>
+        request.path == '/v1/products'
+            ? const Duration(milliseconds: 20)
+            : Duration.zero;
+    final controller = harness.read(provider.notifier);
+    await Future.wait([controller.loadMore(), controller.loadMore()]);
+
+    final ids = harness.read(provider).items.map((product) => product.id);
+    expect(ids.toSet(), hasLength(ids.length));
+    subscription.close();
+  });
+
   test('offline fallback keeps catalog pages scoped to their category',
       () async {
     final repository = CatalogRepository(

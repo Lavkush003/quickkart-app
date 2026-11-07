@@ -59,6 +59,20 @@ void main() {
     await expectPersisted(initial.updateQuantity(product.id, 3));
   });
 
+  test('simultaneous increments do not lose cart quantity updates', () async {
+    final initial = Cart(lines: [CartLine.fromProduct(product)]);
+    await prepare(initial);
+    final controller = harness.read(cartControllerProvider.notifier);
+
+    await Future.wait([
+      controller.increment(product.id),
+      controller.increment(product.id),
+    ]);
+
+    expect(harness.read(cartControllerProvider).quantityOf(product.id), 3);
+    await expectPersisted(initial.updateQuantity(product.id, 3));
+  });
+
   test('decrement persists the cart', () async {
     final initial = initialCart.withoutCoupon();
     await prepare(initial);
