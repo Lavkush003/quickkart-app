@@ -66,7 +66,11 @@
   config on updates, and keeps its current state if refresh fails. Riverpod
   disposal cancels the subscription. Config-dependent screens watch controller
   state rather than managing independent listeners.
-- **Force / optional update UX:**
+- **Force / optional update UX:** Dotted versions are compared numerically,
+  with omitted trailing segments treated as zero. Malformed version values fail
+  open. A root-level gate blocks all routes for required updates and opens the
+  configured `update_url`; optional prompts can be dismissed and the dismissed
+  `latest_version` is persisted so it is not shown again.
 - **Store closed UX:**
 - **Server-driven home: robustness to bad config:**
 
@@ -74,8 +78,11 @@
 
 ## 5. Other decisions
 
-- Packages added (and why):
-- Refactors you made to the existing code (and why):
+- Packages added (and why): `url_launcher` opens the update link supplied by
+  remote configuration from both required and optional update actions.
+- Refactors you made to the existing code (and why): Added an app-level update
+  gate in `MaterialApp.builder` so a required update also blocks routes already
+  open when live config changes.
 
 ## 6. Looking ahead
 

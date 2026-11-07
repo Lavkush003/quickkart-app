@@ -12,19 +12,6 @@ enum UpdateRequirement {
 }
 
 /// Decides whether the running app must / may be updated.
-///
-/// ## TODO(F2) - implement
-///
-/// Contract (hidden tests check this exactly - see ASSIGNMENT.md, Feature 2):
-/// * Versions are dotted numbers like `1.4.0`, `1.10.2`, `2.0`. Compare them
-///   numerically, segment by segment. Missing segments count as 0
-///   (`1.4` == `1.4.0`).
-/// * `current < minSupported`  -> [UpdateRequirement.required]
-/// * `current < latest`        -> [UpdateRequirement.optional]
-/// * otherwise                 -> [UpdateRequirement.none]
-/// * If ANY of the three versions is malformed (empty, letters, negative
-///   numbers, ...) return [UpdateRequirement.none]. A bad value in the
-///   config console must never lock users out of the app.
 class UpdatePolicy {
   const UpdatePolicy._();
 
@@ -33,6 +20,38 @@ class UpdatePolicy {
     required String minSupportedVersion,
     required String latestVersion,
   }) {
-    throw UnimplementedError('F2: implement UpdatePolicy.evaluate');
+    final current = _parseVersion(currentVersion);
+    final minimum = _parseVersion(minSupportedVersion);
+    final latest = _parseVersion(latestVersion);
+    if (current == null || minimum == null || latest == null) {
+      return UpdateRequirement.none;
+    }
+
+    if (_compare(current, minimum) < 0) return UpdateRequirement.required;
+    if (_compare(current, latest) < 0) return UpdateRequirement.optional;
+    return UpdateRequirement.none;
+  }
+
+  static List<BigInt>? _parseVersion(String version) {
+    if (!RegExp(r'^\d+(?:\.\d+)*$').hasMatch(version)) return null;
+
+    final segments = <BigInt>[];
+    for (final segment in version.split('.')) {
+      final value = BigInt.tryParse(segment);
+      if (value == null) return null;
+      segments.add(value);
+    }
+    return segments;
+  }
+
+  static int _compare(List<BigInt> left, List<BigInt> right) {
+    final length = left.length > right.length ? left.length : right.length;
+    for (var index = 0; index < length; index++) {
+      final leftSegment = index < left.length ? left[index] : BigInt.zero;
+      final rightSegment = index < right.length ? right[index] : BigInt.zero;
+      final comparison = leftSegment.compareTo(rightSegment);
+      if (comparison != 0) return comparison;
+    }
+    return 0;
   }
 }
