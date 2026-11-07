@@ -6,8 +6,12 @@ library;
 
 /// Formats paise for display.
 String formatMoney(int paise) {
-  final rupees = paise ~/ 100;
-  return '₹$rupees';
+  final absolutePaise = paise.abs();
+  final rupees = absolutePaise ~/ 100;
+  final remainingPaise = absolutePaise % 100;
+  final sign = paise < 0 ? '-' : '';
+  if (remainingPaise == 0) return '₹$sign$rupees';
+  return '₹$sign$rupees.${remainingPaise.toString().padLeft(2, '0')}';
 }
 
 /// Converts a rupee amount coming from the (legacy) API into paise.

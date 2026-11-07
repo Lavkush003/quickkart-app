@@ -7,11 +7,8 @@ import 'package:quickkart/features/catalog/data/catalog_api.dart';
 import 'package:quickkart/features/catalog/data/catalog_cache.dart';
 import 'package:quickkart/features/catalog/presentation/catalog_controller.dart';
 import 'package:quickkart/features/checkout/application/checkout_controller.dart';
-import 'package:quickkart/features/checkout/domain/order.dart';
 import 'package:quickkart/features/cart/application/cart_controller.dart';
 import 'package:quickkart/features/cart/domain/cart.dart';
-import 'package:quickkart/features/cart/domain/cart_pricing.dart';
-import 'package:quickkart/features/app_config/domain/app_config.dart';
 import 'package:quickkart/features/orders/data/order_tracking_repository.dart';
 
 import 'helpers/test_harness.dart';

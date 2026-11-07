@@ -16,7 +16,11 @@ class OrderApi {
   final ApiClient _client;
 
   /// `POST /v1/orders`. See API_CONTRACT.md for the error codes.
-  Future<Order> placeOrder(Cart cart, CartPricing pricing) async {
+  Future<Order> placeOrder(
+    Cart cart,
+    CartPricing pricing, {
+    String? idempotencyKey,
+  }) async {
     final json = await _client.post('/v1/orders', body: {
       'items': [
         for (final l in cart.lines)
@@ -28,12 +32,15 @@ class OrderApi {
       ],
       'couponCode': cart.coupon?.code,
       'expectedTotalPaise': pricing.totalPaise,
+    }, headers: {
+      if (idempotencyKey != null) 'Idempotency-Key': idempotencyKey,
     }) as Map<String, dynamic>;
     return Order.fromJson(json);
   }
 
   Future<List<Order>> getOrders() async {
-    final json = await _client.get('/v1/orders') as Map<String, dynamic>;
+    final json = await _client.get('/v1/orders', forceRefresh: true)
+        as Map<String, dynamic>;
     return (json['items'] as List)
         .map((e) => Order.fromJson(e as Map<String, dynamic>))
         .toList();

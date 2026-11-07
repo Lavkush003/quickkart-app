@@ -42,13 +42,15 @@ class CatalogRepository {
     required String categoryId,
     String? cursor,
     int limit = 10,
+    bool forceRefresh = false,
   }) async {
-    final cacheKey = 'page.${cursor ?? 'first'}';
+    final cacheKey = 'page.$categoryId.$limit.${cursor ?? 'first'}';
     try {
       final page = await _api.getProducts(
         categoryId: categoryId == kAllProductsCategory ? null : categoryId,
         cursor: cursor,
         limit: limit,
+        forceRefresh: forceRefresh,
       );
       await _cache.write(cacheKey, page);
       return page;

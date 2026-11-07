@@ -70,9 +70,13 @@ class CatalogController extends FamilyNotifier<CatalogState, String> {
     return const CatalogState(isLoadingFirstPage: true);
   }
 
-  Future<void> _loadFirstPage() async {
+  Future<void> _loadFirstPage({bool forceRefresh = false}) async {
     try {
-      final page = await _repo.getPage(categoryId: arg, limit: pageSize);
+      final page = await _repo.getPage(
+        categoryId: arg,
+        limit: pageSize,
+        forceRefresh: forceRefresh,
+      );
       state = CatalogState(
         items: page.items,
         nextCursor: page.nextCursor,
@@ -90,13 +94,13 @@ class CatalogController extends FamilyNotifier<CatalogState, String> {
   /// Retries the first page after an error.
   Future<void> retry() async {
     state = const CatalogState(isLoadingFirstPage: true);
-    await _loadFirstPage();
+    await _loadFirstPage(forceRefresh: true);
   }
 
   /// Loads the next page. Called by the UI when the user scrolls near the
   /// end of the list.
   Future<void> loadMore() async {
-    if (!state.hasMore) return;
+    if (!state.hasMore || state.isLoadingMore) return;
     state = state.copyWith(isLoadingMore: true, clearError: true);
     try {
       final page = await _repo.getPage(
@@ -121,7 +125,11 @@ class CatalogController extends FamilyNotifier<CatalogState, String> {
   Future<void> refresh() async {
     state = state.copyWith(isRefreshing: true, clearError: true);
     try {
-      final page = await _repo.getPage(categoryId: arg, limit: pageSize);
+      final page = await _repo.getPage(
+        categoryId: arg,
+        limit: pageSize,
+        forceRefresh: true,
+      );
       state = CatalogState(
         items: page.items,
         nextCursor: page.nextCursor,
